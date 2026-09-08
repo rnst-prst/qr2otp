@@ -1,0 +1,16 @@
+{
+  "name": "google-authenticator-otp-key-extractor",
+  "version": "1.0.0",
+  "description": "Decodifica locale delle esportazioni Google Authenticator in URI OTP.",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test.js"
+  },
+  "author": "Alexander Hoem Rosbach",
+  "license": "MIT",
+  "dependencies": {
+    "hi-base32": "^0.5.0",
+    "protobufjs": "^6.10.1"
+  }
+}

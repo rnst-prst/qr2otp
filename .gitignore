@@ -1,0 +1,21 @@
+# Dipendenze e log locali
+node_modules/
+*.log
+.DS_Store
+.agents/
+.codex/
+
+# Materiale OTP: conservare gli input e gli output locali in private/
+private/
+.env
+.env.*
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[gG][iI][fF]
+*.[bB][mM][pP]
+*.[wW][eE][bB][pP]
+*.[tT][iI][fF]
+*.[tT][iI][fF][fF]
+migration-uris*.txt
+*.otpauth
