@@ -2,6 +2,8 @@
 
 ## Modifiche non ancora rilasciate
 
+- Il progetto e il comando si chiamano `qr2otp`; lo script sostituisce `otp-codes.sh`.
+
 - `--camera-save` salva un batch validato in un file privato su tmpfs,
   chiude la webcam e restituisce il percorso per importazioni successive.
 - Acquisizione dei QR da webcam con `--camera`, senza file intermedi.

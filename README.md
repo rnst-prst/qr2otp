@@ -1,4 +1,4 @@
-# Estrazione OTP da Google Authenticator
+# qr2otp — Estrazione OTP da Google Authenticator
 
 Converte i QR di esportazione di Google Authenticator in URI `otpauth://`
 da importare in un altro gestore OTP. Per impostazione predefinita elenca
@@ -34,7 +34,7 @@ Avviare l'esportazione in Google Authenticator e, sul computer, eseguire:
 
 ```bash
 set -o pipefail
-./otp-codes.sh --camera | pass otp insert OTP/nickname
+./qr2otp --camera | pass otp insert OTP/nickname
 ```
 
 Il flusso è questo:
@@ -60,7 +60,7 @@ Il dispositivo predefinito è `/dev/video0`. Per usarne un altro:
 
 ```bash
 set -o pipefail
-./otp-codes.sh --camera /dev/video1 | pass otp insert OTP/nickname
+./qr2otp --camera /dev/video1 | pass otp insert OTP/nickname
 ```
 
 La sessione `--camera` esporta **un solo account**. Per importarne altri
@@ -84,12 +84,12 @@ variabile della shell senza includere altri testi.
 Acquisire il batch dalla webcam predefinita:
 
 ```bash
-otp_file=$(./otp-codes.sh --camera-save)
+otp_file=$(./qr2otp --camera-save)
 ```
 
 Proseguire solo se il comando termina con successo e `otp_file` contiene
 un percorso. Per una webcam diversa usare
-`otp_file=$(./otp-codes.sh --camera-save /dev/video1)`.
+`otp_file=$(./qr2otp --camera-save /dev/video1)`.
 
 La webcam a questo punto è già chiusa. Si può elencare il contenuto del
 file e riutilizzarlo per tutte le importazioni necessarie:
@@ -146,7 +146,7 @@ Il passaggio dei dati è questo:
 ```text
 Google Authenticator: esportazione degli account
     → immagini QR salvate sul computer
-    → otp-codes.sh: zbarimg legge il contenuto dei QR
+    → qr2otp: zbarimg legge il contenuto dei QR
     → index.js: decodifica gli account
     → elenco degli account, oppure URI del singolo account scelto
 ```
@@ -178,13 +178,13 @@ seguenti dalla cartella del progetto.
 Elencare gli account senza mostrare i segreti:
 
 ```sh
-./otp-codes.sh private/export.png
+./qr2otp private/export.png
 ```
 
 Se l'esportazione comprende più QR, passarli tutti nello stesso comando:
 
 ```sh
-./otp-codes.sh private/export-1.png private/export-2.png
+./qr2otp private/export-1.png private/export-2.png
 ```
 
 Lo script stampa una riga per account: numero progressivo a partire da 1,
@@ -197,7 +197,7 @@ Per esportare il solo account numero 3 dell'elenco direttamente in `pass`:
 
 ```bash
 set -o pipefail
-./otp-codes.sh --uri 3 private/export.png | pass otp insert OTP/nickname
+./qr2otp --uri 3 private/export.png | pass otp insert OTP/nickname
 ```
 
 Sostituire `3` con il numero desiderato e `OTP/nickname` con il nome della
@@ -207,7 +207,7 @@ occorre fornire tutte le immagini:
 
 ```bash
 set -o pipefail
-./otp-codes.sh --uri 3 private/export-1.png private/export-2.png | pass otp insert OTP/nickname
+./qr2otp --uri 3 private/export-1.png private/export-2.png | pass otp insert OTP/nickname
 ```
 
 L'opzione `--uri` produce un URI `otpauth://` contenente il segreto e i
@@ -220,7 +220,7 @@ con immagini già salvate, usare `--select` al posto di `--uri NUMERO`:
 
 ```bash
 set -o pipefail
-./otp-codes.sh --select private/export.png | pass otp insert OTP/nickname
+./qr2otp --select private/export.png | pass otp insert OTP/nickname
 ```
 
 L'elenco e la scelta vengono mostrati sul terminale; soltanto l'URI scelto
@@ -231,12 +231,12 @@ una destinazione protetta. Questa modalità non crea file temporanei, non passa
 gli URI nella riga di comando e non effettua richieste di rete.
 Le immagini sorgenti rimangono a carico dell'utente.
 
-Per le opzioni disponibili: `./otp-codes.sh --help`.
+Per le opzioni disponibili: `./qr2otp --help`.
 
 ## Alternativa: URI di migrazione già estratti
 
 Questa modalità legge gli URI salvati da `--camera-save` oppure già estratti
-con un altro strumento. **Chi usa `otp-codes.sh` con le immagini può saltare
+con un altro strumento. **Chi usa `qr2otp` con le immagini può saltare
 questa sezione.**
 
 Ogni QR di esportazione contiene una stringa che inizia con
@@ -272,7 +272,7 @@ dello stream. Per i file, usare normalmente la modalità senza `--scan`,
 che verifica l'intero input e rifiuta anche i duplicati.
 
 Questo file contiene i segreti degli account, proprio come le immagini QR.
-Nel flusso normale `otp-codes.sh` passa gli URI estratti direttamente a
+Nel flusso normale `qr2otp` passa gli URI estratti direttamente a
 `index.js` tramite stdin, evitando la necessità di salvarli su disco.
 
 ## Compatibilità e gestione dei segreti
@@ -299,7 +299,7 @@ Eseguire i test sintetici (nessun segreto reale):
 npm test
 ```
 
-- `otp-codes.sh`: lettura dei QR tramite zbarimg o zbarcam.
+- `qr2otp`: lettura dei QR tramite zbarimg o zbarcam.
 - `index.js`: decodifica, verifica dei batch ed esportazione degli URI.
 - `migration-payload.proto`: schema del payload di migrazione.
 - `test.js`: test del decoder e della CLI.

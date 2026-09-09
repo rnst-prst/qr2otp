@@ -123,7 +123,7 @@ test('camera-save returns a private tmpfs file and removes failed captures', t =
         const camera = path.join(dir, 'zbarcam');
         fs.writeFileSync(camera, '#!/bin/sh\necho $$ > "$XDG_RUNTIME_DIR/camera.pid"\nprintf "%s\\n" "$OTP_TEST_PAYLOAD"\nif [ "$OTP_TEST_EOF" = 1 ]; then exit 1; fi\nexec sleep 20\n', { mode: 0o700 });
         const run = (input, eof = false, directory = dir) => spawnSync('bash',
-            [path.join(__dirname, 'otp-codes.sh'), '--camera-save'], {
+            [path.join(__dirname, 'qr2otp'), '--camera-save'], {
                 cwd: '/tmp', encoding: 'utf8', timeout: 5000,
                 env: { ...process.env, PATH: `${dir}:${process.env.PATH}`,
                     XDG_RUNTIME_DIR: directory, OTP_TEST_PAYLOAD: input, OTP_TEST_EOF: eof ? '1' : '0' }

@@ -5,12 +5,12 @@ const path = require('node:path');
 const readline = require('node:readline');
 
 const help = `Usage:
-       otp-codes.sh QR_IMAGE...
-       otp-codes.sh --uri INDEX QR_IMAGE...
-       otp-codes.sh --select QR_IMAGE...
-       otp-codes.sh --camera [DEVICE]
-       otp-codes.sh --camera-save [DEVICE]
-       otp-codes.sh --help
+       qr2otp QR_IMAGE...
+       qr2otp --uri INDEX QR_IMAGE...
+       qr2otp --select QR_IMAGE...
+       qr2otp --camera [DEVICE]
+       qr2otp --camera-save [DEVICE]
+       qr2otp --help
        node index.js [--uri INDEX | --select] [--scan] < migration-uris.txt
 
 Modes and options:
@@ -31,15 +31,15 @@ Decoder stdin:
                     complete batch. Omit this option when reading saved files.
 
 Examples (run from the project directory):
-  ./otp-codes.sh export.png
-  ./otp-codes.sh export-1.png export-2.png
+  ./qr2otp export.png
+  ./qr2otp export-1.png export-2.png
   set -o pipefail
-  ./otp-codes.sh --uri 3 export.png | pass otp insert OTP/account
-  ./otp-codes.sh --select export.png | pass otp insert OTP/account
-  ./otp-codes.sh --camera /dev/video1 | pass otp insert OTP/account
+  ./qr2otp --uri 3 export.png | pass otp insert OTP/account
+  ./qr2otp --select export.png | pass otp insert OTP/account
+  ./qr2otp --camera /dev/video1 | pass otp insert OTP/account
 
   # Capture once, import multiple accounts, then remove the saved file:
-  otp_file=$(./otp-codes.sh --camera-save)
+  otp_file=$(./qr2otp --camera-save)
   # Continue only if capture succeeded.
   node index.js < "$otp_file"
   node index.js --uri 1 < "$otp_file" | pass otp insert OTP/first
@@ -158,7 +158,7 @@ if (require.main === module) {
     main(process.argv.slice(2)).catch(error => {
         // Library and filesystem errors may embed input or paths: keep them private.
         const safe = error.code ? 'Unable to read input or load dependencies.' : error.message;
-        process.stderr.write(`otp-codes: ${safe}\n`);
+        process.stderr.write(`qr2otp: ${safe}\n`);
         process.exitCode = 1;
     });
 }
