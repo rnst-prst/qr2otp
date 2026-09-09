@@ -3,15 +3,19 @@ set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 options=()
-if [[ $# -eq 0 ]]; then
+usage_error() {
+    [[ $# -eq 0 ]] || printf '%s\n\n' "$1" >&2
     node "$script_dir/index.js" --help >&2
     exit 2
+}
+if [[ $# -eq 0 ]]; then
+    usage_error
 fi
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
     exec node "$script_dir/index.js" --help
 fi
 if [[ ${1:-} == --camera || ${1:-} == --camera-save ]]; then
-    [[ $# -le 2 && ${2:-/dev/video0} != -* ]] || { echo 'Usage: otp-codes.sh --camera|--camera-save [DEVICE]' >&2; exit 2; }
+    [[ $# -le 2 && ${2:-/dev/video0} != -* ]] || usage_error 'Expected at most one camera device.'
     command -v zbarcam >/dev/null || { echo 'Install zbar-tools first.' >&2; exit 2; }
     command -v node >/dev/null || { echo 'Install Node.js first.' >&2; exit 2; }
     camera_pid=''
@@ -63,13 +67,17 @@ if [[ ${1:-} == --select ]]; then
     shift
 fi
 if [[ ${1:-} == --uri ]]; then
-    [[ ${#options[@]} -eq 0 ]] || { echo 'Choose --select or --uri, not both.' >&2; exit 2; }
-    [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || { echo 'Expected --uri INDEX.' >&2; exit 2; }
+    [[ ${#options[@]} -eq 0 ]] || usage_error 'Choose --select or --uri, not both.'
+    [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || usage_error 'Expected --uri INDEX.'
     options=(--uri "$2")
     shift 2
 fi
-[[ ${1:-} != -- ]] || shift
-[[ $# -gt 0 ]] || { echo 'Supply one or more QR image filenames.' >&2; exit 2; }
+if [[ ${1:-} == -- ]]; then
+    shift
+elif [[ ${1:-} == -* ]]; then
+    usage_error 'Unknown or misplaced option. Use -- before filenames starting with a dash.'
+fi
+[[ $# -gt 0 ]] || usage_error 'Supply one or more QR image filenames.'
 command -v zbarimg >/dev/null || { echo 'Install zbar-tools first.' >&2; exit 2; }
 # Decode every image before emitting anything, so failure cannot yield partial output.
 if ! qr_data=$(zbarimg --quiet --raw -- "$@"); then

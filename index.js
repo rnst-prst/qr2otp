@@ -4,16 +4,52 @@ const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
-const help = `Usage: otp-codes.sh [--uri INDEX | --select] QR_IMAGE...
+const help = `Usage:
+       otp-codes.sh QR_IMAGE...
+       otp-codes.sh --uri INDEX QR_IMAGE...
+       otp-codes.sh --select QR_IMAGE...
        otp-codes.sh --camera [DEVICE]
        otp-codes.sh --camera-save [DEVICE]
+       otp-codes.sh --help
        node index.js [--uri INDEX | --select] [--scan] < migration-uris.txt
 
-Default: list accounts without secrets. --uri exports one otpauth URI.
---select chooses an account on /dev/tty; --scan stops at a complete batch.
---camera scans a webcam and selects interactively (default /dev/video0).
---camera-save saves migration URIs in the user runtime tmpfs; stdout is the filename.
-Supply every QR of a multi-part export together. Indexes start at 1.
+Modes and options:
+  QR_IMAGE...       List accounts from QR images without printing secrets.
+  --uri INDEX       Export one otpauth URI to stdout. Indexes start at 1.
+  --select          List and choose an account on /dev/tty; only its URI goes to stdout.
+  --camera          Scan a webcam and choose one account interactively.
+  --camera-save     Scan a complete export, save migration URIs on runtime tmpfs,
+                    close the webcam and print only the temporary filename.
+  DEVICE            Camera device (default /dev/video0).
+  --                End options before image filenames starting with a dash.
+  -h, --help        Show this complete help.
+
+Decoder stdin:
+  node index.js reads migration URIs, one per line, from stdin.
+  --uri and --select work with this input too.
+  --scan            Read a live stream, ignore repeated QR codes and stop at a
+                    complete batch. Omit this option when reading saved files.
+
+Examples (run from the project directory):
+  ./otp-codes.sh export.png
+  ./otp-codes.sh export-1.png export-2.png
+  set -o pipefail
+  ./otp-codes.sh --uri 3 export.png | pass otp insert OTP/account
+  ./otp-codes.sh --select export.png | pass otp insert OTP/account
+  ./otp-codes.sh --camera /dev/video1 | pass otp insert OTP/account
+
+  # Capture once, import multiple accounts, then remove the saved file:
+  otp_file=$(./otp-codes.sh --camera-save)
+  # Continue only if capture succeeded.
+  node index.js < "$otp_file"
+  node index.js --uri 1 < "$otp_file" | pass otp insert OTP/first
+  node index.js --uri 2 < "$otp_file" | pass otp insert OTP/second
+  rm -- "$otp_file"
+
+Supply all QR codes from the same export. Different exports cannot be combined.
+Exported URIs and saved migration files contain secrets.
+--camera-save requires a user-owned directory with mode 700 on tmpfs:
+XDG_RUNTIME_DIR, or /run/user/UID if unset. Files have mode 600; remove after use.
 `;
 
 function fail(message) { throw new Error(message); }
