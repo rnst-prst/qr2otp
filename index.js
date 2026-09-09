@@ -2,37 +2,49 @@ const protobuf = require('protobufjs');
 const base32 = require('hi-base32');
 const fs = require('node:fs');
 const path = require('node:path');
+const readline = require('node:readline');
 
-const help = `Usage: otp-codes.sh [--uri INDEX] QR_IMAGE...
-       node index.js [--uri INDEX] < migration-uris.txt
+const help = `Usage: otp-codes.sh [--uri INDEX | --select] QR_IMAGE...
+       otp-codes.sh --camera [DEVICE]
+       otp-codes.sh --camera-save [DEVICE]
+       node index.js [--uri INDEX | --select] [--scan] < migration-uris.txt
 
 Default: list accounts without secrets. --uri exports one otpauth URI.
+--select chooses an account on /dev/tty; --scan stops at a complete batch.
+--camera scans a webcam and selects interactively (default /dev/video0).
+--camera-save saves migration URIs in the user runtime tmpfs; stdout is the filename.
 Supply every QR of a multi-part export together. Indexes start at 1.
 `;
 
 function fail(message) { throw new Error(message); }
 
 function decodeInput(input) {
-    const type = protobuf.loadSync(path.join(__dirname, 'migration-payload.proto'))
-        .lookupType('MigrationPayload');
     const lines = input.trim().split(/\r?\n/).filter(line => line.trim());
     if (!input.trim()) fail('No migration URI received.');
-    const batches = lines.map(line => {
-        let url;
-        try { url = new URL(line.trim()); } catch { fail('Invalid migration URI.'); }
-        if (url.protocol !== 'otpauth-migration:' || url.hostname !== 'offline')
-            fail('Expected an otpauth-migration://offline URI.');
-        const values = url.searchParams.getAll('data');
-        const data = values[0];
-        if (values.length !== 1 || !data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data))
-            fail('Invalid base64 payload.');
-        const buffer = Buffer.from(data, 'base64');
-        if (buffer.toString('base64').replace(/=+$/, '') !== data.replace(/=+$/, ''))
-            fail('Invalid base64 payload.');
-        try {
-            return type.toObject(type.decode(buffer), { longs: String, defaults: true });
-        } catch { fail('Invalid protobuf payload.'); }
-    });
+    const batches = lines.map(decodeLine);
+    return decodeBatches(batches);
+}
+
+function decodeLine(line) {
+    const type = protobuf.loadSync(path.join(__dirname, 'migration-payload.proto'))
+        .lookupType('MigrationPayload');
+    let url;
+    try { url = new URL(line.trim()); } catch { fail('Invalid migration URI.'); }
+    if (url.protocol !== 'otpauth-migration:' || url.hostname !== 'offline')
+        fail('Expected an otpauth-migration://offline URI.');
+    const values = url.searchParams.getAll('data');
+    const data = values[0];
+    if (values.length !== 1 || !data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data))
+        fail('Invalid base64 payload.');
+    const buffer = Buffer.from(data, 'base64');
+    if (buffer.toString('base64').replace(/=+$/, '') !== data.replace(/=+$/, ''))
+        fail('Invalid base64 payload.');
+    try {
+        return type.toObject(type.decode(buffer), { longs: String, defaults: true });
+    } catch { fail('Invalid protobuf payload.'); }
+}
+
+function decodeBatches(batches) {
     const first = batches[0];
     if (first.version !== 1) fail('Unsupported export version.');
     if (first.batchSize < 1 || first.batchSize !== batches.length)
@@ -70,21 +82,32 @@ function toUri(otp) {
     return `otpauth://${kind}/${encodeURIComponent(label)}?${params}`;
 }
 
-function main(args) {
+async function main(args) {
     if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
         process.stdout.write(help);
         return;
     }
+    const scan = args.includes('--scan');
+    if (scan) args = args.filter(arg => arg !== '--scan');
+    if (scan && args.length === 1 && args[0] === '--migration') {
+        const migration = await readScan(process.stdin, undefined, true);
+        process.stdout.write(migration);
+        return;
+    }
+    const interactive = args.length === 1 && args[0] === '--select';
+    if (interactive) args = [];
     let selected;
     if (args.length) {
         if (args.length !== 2 || args[0] !== '--uri' || !/^[1-9]\d*$/.test(args[1]))
-            fail('Usage: node index.js [--uri INDEX]; input is read from stdin.');
+            fail('Usage: node index.js [--uri INDEX | --select] [--scan]; input is read from stdin.');
         selected = Number(args[1]);
     }
     if (process.stdin.isTTY) fail('Supply QR data through a pipe or stdin file.');
-    const accounts = decodeInput(fs.readFileSync(0, 'utf8'));
+    const accounts = scan ? await readScan(process.stdin)
+        : decodeInput(fs.readFileSync(0, 'utf8'));
     if (!accounts.length) fail('Export contains no accounts.');
     const uris = accounts.map(toUri);
+    if (interactive) selected = await selectAccount(accounts);
     if (selected !== undefined) {
         if (selected > accounts.length) fail('Account index is out of range.');
         process.stdout.write(uris[selected - 1] + '\n');
@@ -96,12 +119,78 @@ function main(args) {
 }
 
 if (require.main === module) {
-    try { main(process.argv.slice(2)); }
-    catch (error) {
+    main(process.argv.slice(2)).catch(error => {
         // Library and filesystem errors may embed input or paths: keep them private.
         const safe = error.code ? 'Unable to read input or load dependencies.' : error.message;
         process.stderr.write(`otp-codes: ${safe}\n`);
         process.exitCode = 1;
+    });
+}
+module.exports = { decodeInput, toUri, readScan, chooseAccount };
+
+async function readScan(input, progress = message => process.stderr.write(message), migration = false) {
+    const lines = readline.createInterface({ input, crlfDelay: Infinity });
+    const batches = new Map();
+    const uris = new Map();
+    try {
+        for await (const line of lines) {
+            if (!line.trim()) continue;
+            const batch = decodeLine(line);
+            if (batch.version !== 1 || batch.batchSize < 1 || batch.batchIndex < 0 ||
+                batch.batchIndex >= batch.batchSize) fail('Invalid export batch.');
+            const first = batches.values().next().value;
+            if (first && (batch.batchId !== first.batchId || batch.batchSize !== first.batchSize))
+                fail('Mixed export batches.');
+            const previous = batches.get(batch.batchIndex);
+            if (previous) {
+                if (JSON.stringify(previous) !== JSON.stringify(batch)) fail('Conflicting duplicate export batch.');
+                continue;
+            }
+            batches.set(batch.batchIndex, batch);
+            if (migration) uris.set(batch.batchIndex, line.trim());
+            progress(`QR acquired: ${batches.size}/${batch.batchSize}\n`);
+            if (batches.size === batch.batchSize) {
+                const accounts = decodeBatches([...batches.values()]);
+                if (!migration) return accounts;
+                if (!accounts.length) fail('Export contains no accounts.');
+                accounts.forEach(toUri);
+                return [...uris.entries()].sort((a, b) => a[0] - b[0])
+                    .map(([, uri]) => uri + '\n').join('');
+            }
+        }
+        fail('Incomplete export: camera stopped before all QR codes were received.');
+    } finally {
+        lines.close();
+        input.destroy();
     }
 }
-module.exports = { decodeInput, toUri };
+
+async function chooseAccount(accounts, answers, output) {
+    accounts.forEach((otp, i) => output.write(
+        `${i + 1}\t${JSON.stringify(otp.issuer)}\t${JSON.stringify(otp.name)}\n`));
+    output.write('Select account number (q to cancel): ');
+    for await (const answer of answers) {
+        const value = answer.trim();
+        if (value.toLowerCase() === 'q') fail('Selection cancelled.');
+        if (/^[1-9]\d*$/.test(value) && Number(value) <= accounts.length) return Number(value);
+        output.write('Invalid selection. Enter an account number (q to cancel): ');
+    }
+    fail('Selection cancelled.');
+}
+
+async function selectAccount(accounts) {
+    let fd;
+    try { fd = fs.openSync('/dev/tty', 'r+'); }
+    catch { fail('Interactive selection requires a controlling terminal; use --uri INDEX.'); }
+    const output = { write: text => fs.writeSync(fd, text) };
+    function* answers() {
+        const byte = Buffer.alloc(1);
+        let line = '';
+        while (fs.readSync(fd, byte, 0, 1, null)) {
+            if (byte[0] === 10) { yield line; line = ''; }
+            else line += byte.toString('utf8');
+        }
+    }
+    try { return await chooseAccount(accounts, answers(), output); }
+    finally { fs.closeSync(fd); }
+}

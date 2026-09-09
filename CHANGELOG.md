@@ -1,5 +1,14 @@
 # Note sulle modifiche
 
+## Modifiche non ancora rilasciate
+
+- `--camera-save` salva un batch validato in un file privato su tmpfs,
+  chiude la webcam e restituisce il percorso per importazioni successive.
+- Acquisizione dei QR da webcam con `--camera`, senza file intermedi.
+- Raccolta live dei batch completi con deduplicazione delle letture ripetute.
+- Selezione interattiva con `--select`: elenco e scelta sul terminale,
+  solo l'URI selezionato su stdout.
+
 ## Modifiche precedenti alla creazione del repository
 
 - Il wrapper originario mostrava il payload e lo passava come argomento;
