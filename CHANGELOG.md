@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Upgrade and pin `protobufjs` to 8.8.0, updating the lockfile and removing
+  obsolete transitive dependencies. All 11 tests passed; `npm audit` reported
+  no known vulnerabilities on 2026-09-15.
 - Add the standard MIT license text and document the original Gist and its
   MIT declaration, preserving attribution to Alexander Hoem Rosbach.
 - Translate project documentation and package metadata into English.
@@ -23,5 +26,5 @@
   and discarded OTP parameters. The current decoder reads the payload,
   checks batch completeness, and preserves supported parameters.
 
-The existing dependencies have been retained. Dependency updates and an audit
-remain separate tasks.
+At that stage, the existing dependencies were retained; dependency updates
+and an audit were deferred. See the Unreleased section for subsequent updates.

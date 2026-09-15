@@ -299,7 +299,10 @@ npm test
 - `test.js`: decoder and CLI tests.
 
 Notes on previous fixes are in [CHANGELOG.md](CHANGELOG.md).
-Dependency updates and a dependency audit remain separate tasks.
+The dependency audit on 2026-09-15 reported no known vulnerabilities after
+upgrading to `protobufjs` 8.8.0. All 11 synthetic tests passed, including
+simulated webcam capture. Real webcam testing remains pending.
+Run `npm audit` again before release: advisory data can change over time.
 
 ## License and provenance
 
