@@ -1,7 +1,7 @@
 {
   "name": "qr2otp",
   "version": "1.0.0",
-  "description": "Decodifica locale delle esportazioni Google Authenticator in URI OTP.",
+  "description": "Locally decode Google Authenticator exports into OTP URIs.",
   "private": true,
   "main": "index.js",
   "scripts": {

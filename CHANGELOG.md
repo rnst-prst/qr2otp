@@ -1,25 +1,27 @@
-# Note sulle modifiche
+# Changelog
 
-## Modifiche non ancora rilasciate
+## Unreleased
 
-- Il progetto e il comando si chiamano `qr2otp`; lo script sostituisce `otp-codes.sh`.
+- Add the standard MIT license text and document the original Gist and its
+  MIT declaration, preserving attribution to Alexander Hoem Rosbach.
+- Translate project documentation and package metadata into English.
+- The project and command are named `qr2otp`; the script replaces `otp-codes.sh`.
+- `--camera-save` saves a validated batch in a private file on tmpfs,
+  closes the webcam, and returns the path for subsequent imports.
+- Capture QR codes from a webcam with `--camera`, without intermediate files.
+- Collect complete batches from a live stream, ignoring repeated scans.
+- Interactive selection with `--select`: display the list and prompt on the
+  terminal, and write only the selected URI to stdout.
 
-- `--camera-save` salva un batch validato in un file privato su tmpfs,
-  chiude la webcam e restituisce il percorso per importazioni successive.
-- Acquisizione dei QR da webcam con `--camera`, senza file intermedi.
-- Raccolta live dei batch completi con deduplicazione delle letture ripetute.
-- Selezione interattiva con `--select`: elenco e scelta sul terminale,
-  solo l'URI selezionato su stdout.
+## Changes made before the repository was created
 
-## Modifiche precedenti alla creazione del repository
+- The original wrapper displayed the payload and passed it as an argument;
+  it now sends the payload to the decoder through stdin without printing it.
+- Decoder paths are resolved relative to the scripts, and zbar errors stop
+  execution.
+- The original decoder validated bytes as though they were a protobuf object
+  and discarded OTP parameters. The current decoder reads the payload,
+  checks batch completeness, and preserves supported parameters.
 
-- Il wrapper originario mostrava il payload e lo passava come argomento;
-  ora lo trasmette al decoder tramite stdin senza stamparlo.
-- I percorsi del decoder sono risolti rispetto agli script e gli errori
-  di zbar interrompono l'esecuzione.
-- Il decoder originario verificava i byte come se fossero un oggetto
-  protobuf e scartava i parametri OTP. Il decoder attuale legge il payload,
-  verifica la completezza dei batch e preserva i parametri supportati.
-
-Le dipendenze esistenti sono state mantenute. Il loro aggiornamento e
-l'audit delle dipendenze restano una verifica separata.
+The existing dependencies have been retained. Dependency updates and an audit
+remain separate tasks.

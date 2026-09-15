@@ -1,11 +1,11 @@
-# Dipendenze e log locali
+# Local dependencies and logs
 node_modules/
 *.log
 .DS_Store
 .agents/
 .codex/
 
-# Materiale OTP: conservare gli input e gli output locali in private/
+# OTP data: keep local inputs and outputs in private/
 private/
 .env
 .env.*
@@ -19,3 +19,8 @@ private/
 *.[tT][iI][fF][fF]
 migration-uris*.txt
 *.otpauth
+
+# Editor swap and backup files
+*.swp
+*.swo
+*~
