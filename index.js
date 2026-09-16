@@ -4,14 +4,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
+// Quote paths containing shell metacharacters so help examples remain usable.
+const invocation = process.env.QR2OTP_COMMAND || 'qr2otp';
+const command = /^[a-zA-Z0-9_./-]+$/.test(invocation)
+    ? invocation : "'" + invocation.replace(/'/g, "'\\''") + "'";
+
 const help = `Usage:
-       qr2otp QR_IMAGE...
-       qr2otp --uri INDEX QR_IMAGE...
-       qr2otp --select QR_IMAGE...
-       qr2otp --camera [DEVICE]
-       qr2otp --camera-save [DEVICE]
-       qr2otp --help
-       node index.js [--uri INDEX | --select] [--scan] < migration-uris.txt
+       ${command} QR_IMAGE...
+       ${command} --uri INDEX QR_IMAGE...
+       ${command} --select QR_IMAGE...
+       ${command} --camera [DEVICE]
+       ${command} --camera-save [DEVICE]
+       ${command} --help
+       ${command} --input-file FILE [--uri INDEX | --select]
 
 Modes and options:
   QR_IMAGE...       List accounts from QR images without printing secrets.
@@ -20,30 +25,32 @@ Modes and options:
   --camera          Scan a webcam and choose one account interactively.
   --camera-save     Scan a complete export, save migration URIs on runtime tmpfs,
                     close the webcam and print only the temporary filename.
+  --input-file FILE Read migration URIs from a text file; use - to read stdin.
+                    Cannot be combined with QR images or camera modes.
   DEVICE            Camera device (default /dev/video0).
   --                End options before image filenames starting with a dash.
   -h, --help        Show this complete help.
 
-Decoder stdin:
-  node index.js reads migration URIs, one per line, from stdin.
-  --uri and --select work with this input too.
-  --scan            Read a live stream, ignore repeated QR codes and stop at a
-                    complete batch. Omit this option when reading saved files.
+Migration URI input:
+  --input-file reads one complete migration URI per line, not QR images.
+  --uri and --select can appear before or after --input-file.
+  ${command} --input-file - --select < migration-uris.txt
+  For input filenames starting with a dash, use a path such as ./-export.txt.
 
 Examples (run from the project directory):
-  ./qr2otp export.png
-  ./qr2otp export-1.png export-2.png
+  ${command} export.png
+  ${command} export-1.png export-2.png
   set -o pipefail
-  ./qr2otp --uri 3 export.png | pass otp insert OTP/account
-  ./qr2otp --select export.png | pass otp insert OTP/account
-  ./qr2otp --camera /dev/video1 | pass otp insert OTP/account
+  ${command} --uri 3 export.png | pass otp insert OTP/account
+  ${command} --select export.png | pass otp insert OTP/account
+  ${command} --camera /dev/video1 | pass otp insert OTP/account
 
   # Capture once, import multiple accounts, then remove the saved file:
-  otp_file=$(./qr2otp --camera-save)
+  otp_file=$(${command} --camera-save)
   # Continue only if capture succeeded.
-  node index.js < "$otp_file"
-  node index.js --uri 1 < "$otp_file" | pass otp insert OTP/first
-  node index.js --uri 2 < "$otp_file" | pass otp insert OTP/second
+  ${command} --input-file "$otp_file"
+  ${command} --input-file "$otp_file" --uri 1 | pass otp insert OTP/first
+  ${command} --input-file "$otp_file" --uri 2 | pass otp insert OTP/second
   rm -- "$otp_file"
 
 Supply all QR codes from the same export. Different exports cannot be combined.

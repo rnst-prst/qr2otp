@@ -141,8 +141,8 @@ test('camera-save returns a private tmpfs file and removes failed captures', t =
         const cameraPid = Number(fs.readFileSync(path.join(dir, 'camera.pid'), 'utf8'));
         assert.throws(() => process.kill(cameraPid, 0), { code: 'ESRCH' });
         for (const index of ['1', '2']) {
-            const imported = spawnSync(process.execPath, [path.join(__dirname, 'index.js'), '--uri', index],
-                { input: fs.readFileSync(filename), encoding: 'utf8', timeout: 3000 });
+            const imported = spawnSync('bash', [path.join(__dirname, 'qr2otp'), '--input-file', filename, '--uri', index],
+                { encoding: 'utf8', timeout: 3000 });
             assert.equal(imported.status, 0);
             assert.match(imported.stdout, /^otpauth:\/\/totp\//);
         }
@@ -158,4 +158,48 @@ test('camera-save returns a private tmpfs file and removes failed captures', t =
         assert.notEqual(badRuntime.status, 0);
         assert.equal(badRuntime.stdout, '');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('wrapper reads migration files and stdin from another directory', () => {
+    const dir = fs.mkdtempSync('/tmp/qr2otp-input-');
+    const filename = path.join(dir, 'migration uris.txt');
+    const run = (args, input = '') => spawnSync('bash', [path.join(__dirname, 'qr2otp'), ...args],
+        { cwd: '/tmp', input, encoding: 'utf8', timeout: 3000 });
+    try {
+        const first = payload({ batchSize: 2 });
+        const last = payload({ batchSize: 2, batchIndex: 1, otpParameters: [{ ...account, name: 'second' }] });
+        const input = last + '\n' + first + '\n';
+        fs.writeFileSync(filename, input, { mode: 0o600 });
+        const listed = run(['--input-file', filename]);
+        assert.equal(listed.status, 0, listed.stderr);
+        assert.ok(listed.stdout.includes(account.name));
+        assert.ok(!listed.stdout.includes('secret='));
+        for (const args of [ ['--input-file', filename, '--uri', '2'],
+            ['--uri', '2', '--input-file', filename], ['--input-file', '-', '--uri', '2'] ]) {
+            const result = run(args, input);
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(result.stdout, toUri(decodeInput(input)[1]) + '\n');
+        }
+        for (const invalid of [first, first + '\n' + first, 'invalid']) {
+            fs.writeFileSync(filename, invalid);
+            for (const name of [filename, '-']) {
+                const result = run(['--input-file', name, '--uri', '1'], invalid);
+                assert.notEqual(result.status, 0);
+                assert.equal(result.stdout, '');
+            }
+        }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('wrapper rejects missing, conflicting and invalid input-file arguments', () => {
+    for (const args of [ ['--input-file'], ['--input-file', '--select'],
+        ['--input-file', '-', 'export.png'], ['--input-file', '-', '--camera'],
+        ['--camera', '--input-file', '-'], ['--input-file', '-', '--input-file', '-'],
+        ['--input-file', '-', '--select', '--uri', '1'], ['--input-file', '/dev/null'],
+        ['--input-file', '/tmp'], ['--input-file', '/nonexistent/qr2otp/input.txt'] ]) {
+        const result = spawnSync('bash', [path.join(__dirname, 'qr2otp'), ...args],
+            { input: payload(), encoding: 'utf8', timeout: 3000 });
+        assert.equal(result.status, 2, JSON.stringify(args));
+        assert.equal(result.stdout, '');
+    }
 });

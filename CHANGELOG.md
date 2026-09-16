@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `--input-file FILE` to read saved migration URIs through `qr2otp`,
+  with `-` for stdin. Use the wrapper in all user-facing import examples.
 - Upgrade and pin `protobufjs` to 8.8.0, updating the lockfile and removing
   obsolete transitive dependencies. All 11 tests passed; `npm audit` reported
   no known vulnerabilities on 2026-09-15.

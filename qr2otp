@@ -2,6 +2,7 @@
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+export QR2OTP_COMMAND="$0"
 options=()
 usage_error() {
     [[ $# -eq 0 ]] || printf '%s\n\n' "$1" >&2
@@ -62,20 +63,40 @@ if [[ ${1:-} == --camera || ${1:-} == --camera-save ]]; then
     fi
     exit
 fi
-if [[ ${1:-} == --select ]]; then
-    options=(--select)
-    shift
-fi
-if [[ ${1:-} == --uri ]]; then
-    [[ ${#options[@]} -eq 0 ]] || usage_error 'Choose --select or --uri, not both.'
-    [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || usage_error 'Expected --uri INDEX.'
-    options=(--uri "$2")
-    shift 2
-fi
-if [[ ${1:-} == -- ]]; then
-    shift
-elif [[ ${1:-} == -* ]]; then
-    usage_error 'Unknown or misplaced option. Use -- before filenames starting with a dash.'
+input_file=''
+has_input_file=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --select)
+            [[ ${#options[@]} -eq 0 ]] || usage_error 'Choose --select or --uri only once.'
+            options=(--select)
+            shift
+            ;;
+        --uri)
+            [[ ${#options[@]} -eq 0 ]] || usage_error 'Choose --select or --uri only once.'
+            [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || usage_error 'Expected --uri INDEX.'
+            options=(--uri "$2")
+            shift 2
+            ;;
+        --input-file)
+            [[ $has_input_file == false ]] || usage_error 'Specify --input-file only once.'
+            [[ $# -ge 2 && -n $2 && ( $2 == - || $2 != -* ) ]] || usage_error 'Expected --input-file FILE (or - for stdin).'
+            input_file=$2
+            has_input_file=true
+            shift 2
+            ;;
+        --) shift; break ;;
+        -*) usage_error 'Unknown or misplaced option. Use -- before image filenames starting with a dash.' ;;
+        *) break ;;
+    esac
+done
+if [[ $has_input_file == true ]]; then
+    [[ $# -eq 0 ]] || usage_error 'Do not combine --input-file with QR image filenames.'
+    if [[ $input_file == - ]]; then
+        exec node "$script_dir/index.js" "${options[@]}"
+    fi
+    [[ -f $input_file && -r $input_file ]] || { echo 'Input file must be a readable regular file.' >&2; exit 2; }
+    exec node "$script_dir/index.js" "${options[@]}" < "$input_file"
 fi
 [[ $# -gt 0 ]] || usage_error 'Supply one or more QR image filenames.'
 command -v zbarimg >/dev/null || { echo 'Install zbar-tools first.' >&2; exit 2; }
